@@ -32,6 +32,7 @@ setup(
             # Add plugins here, eg
             harvest=ckanext.harvest.plugin:Harvest
             ckan_harvester=ckanext.harvest.harvesters:CKANHarvester
+            metax_harvester=ckanext.harvest.harvesters:MetaxHarvester
 
             # Test plugins
 
