@@ -116,31 +116,60 @@ class MetaxHarvester(HarvesterBase):
             return None
 
     def _convert_to_package_dict(self, dataset_dict):
+        identifier = dataset_dict.get('identifier')
         research_dataset = dataset_dict['research_dataset']
         license_id = self._get_license_id(dataset_dict)
+
         return {
-            'id': dataset_dict.get('identifier'),
+            'id': identifier,
             'name': research_dataset.get('preferred_identifier'),
             'title': get_preferred_language_version(research_dataset['title']),
-            'url': dataset_dict.get('identifier'),
-            # TODO: handle several or zero authors
+            'url': f'https://etsin.fairdata.fi/dataset/{identifier}/data',
             'author': get_author_string(research_dataset.get('creator', [])),
             'maintainer': get_contributor_name(research_dataset.get('publisher', {})),
             'notes': get_preferred_language_version(research_dataset['description']),
             'metadata_created': datetime.fromisoformat(dataset_dict.get('date_created')),
             'metadata_updated': datetime.fromisoformat(dataset_dict.get('date_modified')),
             'tags': [{'name':  kw} for kw in research_dataset.get('keyword', [])],
-            'resources': [{
-                'name': resource.get('title'),
-                'url': resource.get('download_url', {}).get('identifier', ''),
-                'format': infer_resource_format(resource.get('download_url', {}).get('identifier', ''))
-            } for resource in research_dataset.get('remote_resources', [])],
+            'resources': [
+                convert_resource(resource) for resource in research_dataset.get('remote_resources', [])
+            ] or [
+                generic_resource(identifier)
+            ],
             'extras': [
-                {'key': 'Julkaisupäivämäärä', 'value': date.fromisoformat(research_dataset.get('issued'))}
+                {
+                    'key': 'Julkaisupäivämäärä',
+                    'value': date.fromisoformat(research_dataset.get('issued'))
+                }
             ],
             'license_id': license_id,
             'owner_org': 'luke-fi'
         }
+
+def generic_resource(identifier):
+    return {
+        'name': 'Lataa aineisto / ladda ner data/ download the data',
+        'url': f'https://etsin.fairdata.fi/dataset/{identifier}/data'
+    }
+
+def convert_resource(resource):
+    name = resource.get('title')
+    url, description = pick_urls(resource)
+    format = infer_resource_format(url)
+    return {
+        'name': name,
+        'url': url,
+        'description': description,
+        'format': format
+    }
+
+def pick_urls(resource):
+    download_url = resource.get('download_url', {}).get('identifier')
+    access_url  = resource.get('access_url', {}).get('identifier')
+    if download_url and access_url:
+        return download_url, f'Lisätietoja / mer information / more information: {access_url}'
+    else:
+        return download_url or access_url, None
 
 
 def search_for_datasets(remote_base_url, query_params=None):
