@@ -124,7 +124,7 @@ class MetaxHarvester(HarvesterBase):
             'id': identifier,
             'name': research_dataset.get('preferred_identifier'),
             'title': get_preferred_language_version(research_dataset['title']),
-            'url': f'https://etsin.fairdata.fi/dataset/{identifier}/data',
+            'url': f'https://etsin.fairdata.fi/dataset/{identifier}',
             'author': get_author_string(research_dataset.get('creator', [])),
             'maintainer': get_contributor_name(research_dataset.get('publisher', {})),
             'notes': get_preferred_language_version(research_dataset['description']),
