@@ -1,4 +1,9 @@
-import datetime
+from ckan.lib.helpers import json
+from ckan import model
+
+from ckanext.harvest.model import HarvestObject
+from .base import HarvesterBase
+
 import requests
 import itertools
 import re
@@ -9,14 +14,6 @@ from urllib.parse import urlencode, urlparse, urljoin
 import logging
 log = logging.getLogger(__name__)
 
-from ckan.lib.helpers import json
-from ckan import model
-
-from ckanext.harvest.model import HarvestObject
-from .base import HarvesterBase
-
-
-print('####### Loading MetaxHarvester #######')
 
 class MetaxHarvester(HarvesterBase):
     '''
@@ -68,12 +65,15 @@ class MetaxHarvester(HarvesterBase):
 #       else:
             # Get only those datasets that have been updated after last error-free job
 
-        harvest_objects = [ HarvestObject(guid=dataset['identifier'], job=harvest_job, content=json.dumps(dataset)) for dataset in datasets]
+        harvest_objects = [
+            HarvestObject(guid=dataset['identifier'], job=harvest_job, content=json.dumps(dataset))
+            for dataset in datasets
+        ]
 
         for obj in harvest_objects:
             obj.save()
 
-        return [ obj.id for obj in harvest_objects ]
+        return [obj.id for obj in harvest_objects]
 
     def fetch_stage(self, harvest_object):
         # Nothing to do here. We got everything in the gather stage. If we want to
@@ -146,11 +146,13 @@ class MetaxHarvester(HarvesterBase):
             'owner_org': 'luke-fi'
         }
 
+
 def generic_resource(identifier):
     return {
         'name': 'Lataa aineisto / ladda ner data/ download the data',
         'url': f'https://etsin.fairdata.fi/dataset/{identifier}/data'
     }
+
 
 def convert_resource(resource):
     name = resource.get('title')
@@ -163,9 +165,10 @@ def convert_resource(resource):
         'format': format
     }
 
+
 def pick_urls(resource):
     download_url = resource.get('download_url', {}).get('identifier')
-    access_url  = resource.get('access_url', {}).get('identifier')
+    access_url = resource.get('access_url', {}).get('identifier')
     if download_url and access_url:
         return download_url, f'Lisätietoja / mer information / more information: {access_url}'
     else:
@@ -183,8 +186,8 @@ def search_for_datasets(remote_base_url, query_params=None):
         **(query_params if query_params else {}),
         'latest': 'true',
         'metadata_owner_org': 'luke.fi',
-        #'fields': ','.join(['id', 'identifier', 'date_modified']),
-        #'ordering': 'id',  # gives "Internal Server Error" if used together with 'fields'
+        # 'fields': ','.join(['id', 'identifier', 'date_modified']),
+        # 'ordering': 'id',  # gives "Internal Server Error" if used together with 'fields'
         'limit': 10
     }
 
@@ -271,7 +274,4 @@ def infer_resource_format(url):
 
 
 class SearchError(Exception):
-    pass
-
-class DebuggingError(Exception):
     pass
