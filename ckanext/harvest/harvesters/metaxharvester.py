@@ -66,7 +66,7 @@ class MetaxHarvester(HarvesterBase):
             # Get only those datasets that have been updated after last error-free job
 
         harvest_objects = [
-            HarvestObject(guid=dataset['identifier'], job=harvest_job, content=json.dumps(dataset))
+            HarvestObject(guid=dataset['identifier'], job=harvest_job, content=json.dumps(dataset), metadata_modified_date=dataset.get('date_modified'))
             for dataset in datasets
         ]
 
@@ -130,6 +130,7 @@ class MetaxHarvester(HarvesterBase):
             'notes': get_preferred_language_version(research_dataset['description']),
             'metadata_created': datetime.fromisoformat(dataset_dict.get('date_created')),
             'metadata_updated': datetime.fromisoformat(dataset_dict.get('date_modified')),
+            'metadata_modified': dataset_dict.get('date_modified'),
             'tags': [{'name':  kw} for kw in research_dataset.get('keyword', [])],
             'resources': [
                 convert_resource(resource) for resource in research_dataset.get('remote_resources', [])
