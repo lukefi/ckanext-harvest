@@ -58,22 +58,39 @@ class MetaxHarvester(HarvesterBase):
 #               (last_time - datetime.timedelta(hours=1)).isoformat()
 #           log.info('Searching for datasets modified since: %s UTC',
 #                    get_changes_since)
+        url = harvest_job.source.url
 
         if get_all_packages:
-            datasets = search_for_datasets(harvest_job.source.url)
-            log.info(f'Received metadata for {len(datasets)} datasets')
+            try:
+                datasets = search_for_datasets(url)
+                log.info(f'Received metadata for {len(datasets)} datasets')
+            except SearchError as e:
+                log.info(f'Searching for all datasets gave an error: {e}')
+                self._save_gather_error(
+                    f'Unable to search Metax for datasets: {e} url: {url}',
+                    harvest_job
+                )
+                return None
 #       else:
             # Get only those datasets that have been updated after last error-free job
 
-        harvest_objects = [
-            HarvestObject(guid=dataset['identifier'], job=harvest_job, content=json.dumps(dataset), metadata_modified_date=dataset.get('date_modified'))
-            for dataset in datasets
-        ]
+        try:
+            harvest_objects = [
+                HarvestObject(
+                    guid=dataset['identifier'],
+                    job=harvest_job,
+                    content=json.dumps(dataset),
+                    metadata_modified_date=dataset.get('date_modified')
+                )
+                for dataset in datasets
+            ]
 
-        for obj in harvest_objects:
-            obj.save()
+            for obj in harvest_objects:
+                obj.save()
 
-        return [obj.id for obj in harvest_objects]
+            return [obj.id for obj in harvest_objects]
+        except Exception as e:
+            self._save_gather_error(f'Creating harvest objects failed: {e}', harvest_job)
 
     def fetch_stage(self, harvest_object):
         # Nothing to do here. We got everything in the gather stage. If we want to
@@ -130,6 +147,7 @@ class MetaxHarvester(HarvesterBase):
             'notes': get_preferred_language_version(research_dataset['description']),
             'metadata_created': datetime.fromisoformat(dataset_dict.get('date_created')),
             'metadata_updated': datetime.fromisoformat(dataset_dict.get('date_modified')),
+            # metadata_modified determines if the package needs to be updated
             'metadata_modified': dataset_dict.get('date_modified'),
             'tags': [{'name':  kw} for kw in research_dataset.get('keyword', [])],
             'resources': [
@@ -207,6 +225,7 @@ def search_for_datasets(remote_base_url, query_params=None):
 
 def _getContent(url):
     response = requests.get(url)
+    response.raise_for_status()
     return response.json()
 
 
