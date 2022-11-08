@@ -65,6 +65,12 @@ class MetaxHarvester(HarvesterBase):
             try:
                 datasets = search_for_datasets(url)
                 log.info(f'Received metadata for {len(datasets)} datasets')
+                if not datasets:
+                    self._save_gather_error(
+                        f'No datasets found at Metax: {metax_url}',
+                        harvest_job
+                    )
+                    return []
             except SearchError as e:
                 log.info(f'Searching for all datasets gave an error: {e}')
                 self._save_gather_error(
