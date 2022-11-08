@@ -205,8 +205,6 @@ def search_for_datasets(remote_base_url, query_params=None):
     '''
     Does a dataset search on Metax. Deals with paging.
     '''
-    # TODO: Be prepared for datasets being added or removed during the
-    # paging through them. See ckanharvester.py.
 
     params = {
         **(query_params if query_params else {}),
@@ -224,10 +222,27 @@ def search_for_datasets(remote_base_url, query_params=None):
             page = _getContent(next_url)
             next_url = page.get('next')
             pages.append(page.get('results'))
+
         except Exception as e:
             raise SearchError(f'Error listing metax data: {e}')
 
-    return list(itertools.chain(*pages))
+    return filter_duplicates(itertools.chain(*pages))
+
+def filter_duplicates(datasets):
+    ids = set()
+    filtered_datasets = []
+
+    for ds in datasets:
+        if ds['id'] in ids:
+            log.info('Discarding duplicate dataset %s - probably due '
+                        'to datasets being changed at the same time as '
+                        'when the harvester was paging through',
+                        ds['id'])
+        else:
+            ids.add(ds['id'])
+            filtered_datasets.append(ds)
+
+    return filtered_datasets
 
 
 def _getContent(url):
