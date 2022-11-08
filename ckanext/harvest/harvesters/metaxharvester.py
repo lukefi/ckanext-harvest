@@ -1,4 +1,5 @@
 from ckan.lib.helpers import json
+from ckan.logic import ValidationError
 from ckan import model
 
 from ckanext.harvest.model import HarvestObject
@@ -117,6 +118,12 @@ class MetaxHarvester(HarvesterBase):
             package_dict = self._convert_to_package_dict(dataset_dict)
             result = self._create_or_update_package(package_dict, harvest_object, package_dict_form='package_show')
             return result
+        except ValidationError as e:
+            self._save_object_error(
+                f'Invalid package with GUID {harvest_object.guid}: {e.error_dict}',
+                harvest_object, 'Import'
+            )
+            return False
         except Exception as e:
             self._save_object_error(f'{e}', harvest_object, 'Import')
             return False
