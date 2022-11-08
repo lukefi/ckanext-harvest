@@ -20,9 +20,6 @@ class MetaxHarvester(HarvesterBase):
     '''
     A Harvester for Metax instances
     '''
-    config = None
-
-    api_version = 2
 
     license_register = model.license.LicenseRegister()
 
@@ -59,11 +56,11 @@ class MetaxHarvester(HarvesterBase):
 #               (last_time - datetime.timedelta(hours=1)).isoformat()
 #           log.info('Searching for datasets modified since: %s UTC',
 #                    get_changes_since)
-        url = harvest_job.source.url
+        metax_url = harvest_job.source.url
 
         if get_all_packages:
             try:
-                datasets = search_for_datasets(url)
+                datasets = search_for_datasets(metax_url)
                 log.info(f'Received metadata for {len(datasets)} datasets')
                 if not datasets:
                     self._save_gather_error(
@@ -74,7 +71,7 @@ class MetaxHarvester(HarvesterBase):
             except SearchError as e:
                 log.info(f'Searching for all datasets gave an error: {e}')
                 self._save_gather_error(
-                    f'Unable to search Metax for datasets: {e} url: {url}',
+                    f'Unable to search Metax for datasets: {e} url: {metax_url}',
                     harvest_job
                 )
                 return None
@@ -120,7 +117,7 @@ class MetaxHarvester(HarvesterBase):
             return False
 
         try:
-            dataset_dict = (json.loads(harvest_object.content))
+            dataset_dict = json.loads(harvest_object.content)
             package_dict = self._convert_to_package_dict(dataset_dict)
             result = self._create_or_update_package(package_dict, harvest_object, package_dict_form='package_show')
             return result
@@ -234,16 +231,16 @@ def search_for_datasets(remote_base_url, query_params=None):
 
     return filter_duplicates(itertools.chain(*pages))
 
+
 def filter_duplicates(datasets):
     ids = set()
     filtered_datasets = []
 
     for ds in datasets:
         if ds['id'] in ids:
-            log.info('Discarding duplicate dataset %s - probably due '
-                        'to datasets being changed at the same time as '
-                        'when the harvester was paging through',
-                        ds['id'])
+            log.info(f'Discarding duplicate dataset {ds["id"]} - probably due '
+                     'to datasets being changed at the same time as '
+                     'when the harvester was paging through')
         else:
             ids.add(ds['id'])
             filtered_datasets.append(ds)
