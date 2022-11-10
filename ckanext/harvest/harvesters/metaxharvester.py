@@ -42,47 +42,31 @@ class MetaxHarvester(HarvesterBase):
 
         base_url = harvest_object.job.source.url
         url = '/'.join(part.strip('/') for part in (base_url, DATASETS_PATH, guid))
-        log.info(f'candidate url: "{url}"')
         return url
 
     def gather_stage(self, harvest_job):
         log.debug(f'In MetaxHarvester gather_stage ({harvest_job.source.url})')
 
-        get_all_packages = True
-
         last_error_free_job = self.last_error_free_job(harvest_job)
-        log.info('Last error-free job: %r', last_error_free_job)
-#       if (last_error_free_job and
-#               not self.config.get('force_all', False)):
-#           get_all_packages = False
-
-#           last_time = last_error_free_job.gather_started
-
-#           get_changes_since = \
-#               (last_time - datetime.timedelta(hours=1)).isoformat()
-#           log.info('Searching for datasets modified since: %s UTC',
-#                    get_changes_since)
+        log.info(f'Last error-free job: {last_error_free_job}')
         metax_datasets_url = '/'.join(part.strip('/') for part in (harvest_job.source.url, DATASETS_PATH))
 
-        if get_all_packages:
-            try:
-                datasets = search_for_datasets(metax_datasets_url)
-                log.info(f'Received metadata for {len(datasets)} datasets')
-                if not datasets:
-                    self._save_gather_error(
-                        f'No datasets found at Metax: {metax_datasets_url}',
-                        harvest_job
-                    )
-                    return []
-            except SearchError as e:
-                log.info(f'Searching for all datasets gave an error: {e}')
+        try:
+            datasets = search_for_datasets(metax_datasets_url)
+            log.info(f'Received metadata for {len(datasets)} datasets')
+            if not datasets:
                 self._save_gather_error(
-                    f'Unable to search Metax for datasets: {e} url: {metax_datasets_url}',
+                    f'No datasets found at Metax: {metax_datasets_url}',
                     harvest_job
                 )
-                return None
-#       else:
-            # Get only those datasets that have been updated after last error-free job
+                return []
+        except SearchError as e:
+            log.info(f'Searching for all datasets gave an error: {e}')
+            self._save_gather_error(
+                f'Unable to search Metax for datasets: {e} url: {metax_datasets_url}',
+                harvest_job
+            )
+            return None
 
         datasets_to_update = (ds for ds in datasets if needs_updating(ds, last_error_free_job))
         try:
@@ -184,6 +168,8 @@ class MetaxHarvester(HarvesterBase):
 
 
 def needs_updating(dataset, last_error_free_job):
+    if not last_error_free_job:
+        return True
     updated_in_metax = datetime.fromisoformat(dataset.get('date_modified'))
     # gather_started is created with datetime.utcnow() but the datetime object
     # is not aware of the time zone
@@ -229,8 +215,6 @@ def search_for_datasets(remote_base_url, query_params=None):
         **(query_params if query_params else {}),
         'latest': 'true',
         'metadata_owner_org': 'luke.fi',
-        # 'fields': ','.join(['id', 'identifier', 'date_modified']),
-        # 'ordering': 'id',  # gives "Internal Server Error" if used together with 'fields'
         'limit': 10
     }
 
