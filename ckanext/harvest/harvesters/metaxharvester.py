@@ -9,11 +9,13 @@ import requests
 import itertools
 import re
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, timezone
 from urllib.parse import urlencode, urlparse, urljoin
 
 import logging
 log = logging.getLogger(__name__)
+
+DATASETS_PATH = '/rest/v2/datasets'
 
 
 class MetaxHarvester(HarvesterBase):
@@ -35,17 +37,21 @@ class MetaxHarvester(HarvesterBase):
         pass
 
     def get_original_url(self, harvest_object_id):
-        # optional
-        pass
+        harvest_object = HarvestObject.get(harvest_object_id)
+        guid = harvest_object.guid
+
+        base_url = harvest_object.job.source.url
+        url = '/'.join(part.strip('/') for part in (base_url, DATASETS_PATH, guid))
+        log.info(f'candidate url: "{url}"')
+        return url
 
     def gather_stage(self, harvest_job):
-        log.debug('In MetaxHarvester gather_stage (%s)',
-                  harvest_job.source.url)
+        log.debug(f'In MetaxHarvester gather_stage ({harvest_job.source.url})')
 
         get_all_packages = True
 
-#       last_error_free_job = self.last_error_free_job(harvest_job)
-#       log.info('Last error-free job: %r', last_error_free_job)
+        last_error_free_job = self.last_error_free_job(harvest_job)
+        log.info('Last error-free job: %r', last_error_free_job)
 #       if (last_error_free_job and
 #               not self.config.get('force_all', False)):
 #           get_all_packages = False
@@ -56,28 +62,29 @@ class MetaxHarvester(HarvesterBase):
 #               (last_time - datetime.timedelta(hours=1)).isoformat()
 #           log.info('Searching for datasets modified since: %s UTC',
 #                    get_changes_since)
-        metax_url = harvest_job.source.url
+        metax_datasets_url = '/'.join(part.strip('/') for part in (harvest_job.source.url, DATASETS_PATH))
 
         if get_all_packages:
             try:
-                datasets = search_for_datasets(metax_url)
+                datasets = search_for_datasets(metax_datasets_url)
                 log.info(f'Received metadata for {len(datasets)} datasets')
                 if not datasets:
                     self._save_gather_error(
-                        f'No datasets found at Metax: {metax_url}',
+                        f'No datasets found at Metax: {metax_datasets_url}',
                         harvest_job
                     )
                     return []
             except SearchError as e:
                 log.info(f'Searching for all datasets gave an error: {e}')
                 self._save_gather_error(
-                    f'Unable to search Metax for datasets: {e} url: {metax_url}',
+                    f'Unable to search Metax for datasets: {e} url: {metax_datasets_url}',
                     harvest_job
                 )
                 return None
 #       else:
             # Get only those datasets that have been updated after last error-free job
 
+        datasets_to_update = (ds for ds in datasets if needs_updating(ds, last_error_free_job))
         try:
             harvest_objects = [
                 HarvestObject(
@@ -86,7 +93,7 @@ class MetaxHarvester(HarvesterBase):
                     content=json.dumps(dataset),
                     metadata_modified_date=dataset.get('date_modified')
                 )
-                for dataset in datasets
+                for dataset in datasets_to_update
             ]
 
             for obj in harvest_objects:
@@ -132,7 +139,7 @@ class MetaxHarvester(HarvesterBase):
             return False
 
     def _get_license_id(self, dataset):
-        licenses = dataset['research_dataset']['access_rights'].get('license')
+        licenses = dataset.get('research_dataset', {}).get('access_rights', {}).get('license')
         if not licenses:
             return 'notspecified'
         url = licenses[0].get('identifier')
@@ -150,11 +157,11 @@ class MetaxHarvester(HarvesterBase):
         return {
             'id': identifier,
             'name': research_dataset.get('preferred_identifier'),
-            'title': get_preferred_language_version(research_dataset['title']),
+            'title': get_preferred_language_version(research_dataset.get('title')),
             'url': f'https://etsin.fairdata.fi/dataset/{identifier}',
             'author': get_author_string(research_dataset.get('creator', [])),
             'maintainer': get_contributor_name(research_dataset.get('publisher', {})),
-            'notes': get_preferred_language_version(research_dataset['description']),
+            'notes': get_preferred_language_version(research_dataset.get('description')),
             'metadata_created': datetime.fromisoformat(dataset_dict.get('date_created')),
             'metadata_updated': datetime.fromisoformat(dataset_dict.get('date_modified')),
             # metadata_modified determines if the package needs to be updated
@@ -174,6 +181,15 @@ class MetaxHarvester(HarvesterBase):
             'license_id': license_id,
             'owner_org': 'luke-fi'
         }
+
+
+def needs_updating(dataset, last_error_free_job):
+    updated_in_metax = datetime.fromisoformat(dataset.get('date_modified'))
+    # gather_started is created with datetime.utcnow() but the datetime object
+    # is not aware of the time zone
+    updated_in_ckan = last_error_free_job.gather_started.replace(tzinfo=timezone.utc)
+    buffer = timedelta(hours=1)
+    return (updated_in_metax - updated_in_ckan) + buffer > timedelta()
 
 
 def generic_resource(identifier):
