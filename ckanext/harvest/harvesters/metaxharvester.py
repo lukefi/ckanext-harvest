@@ -16,7 +16,7 @@ import logging
 log = logging.getLogger(__name__)
 
 DATASETS_PATH = '/rest/v2/datasets'
-
+ACCESS_TYPE_OPEN = 'http://uri.suomi.fi/codelist/fairdata/access_type/code/open'
 
 class MetaxHarvester(HarvesterBase):
     '''
@@ -180,7 +180,7 @@ def needs_updating(dataset, last_error_free_job):
 
 def generic_resource(identifier):
     return {
-        'name': 'Lataa aineisto / ladda ner data/ download the data',
+        'name': 'Lataa aineisto / ladda ner data / download the data',
         'url': f'https://etsin.fairdata.fi/dataset/{identifier}/data'
     }
 
@@ -229,7 +229,9 @@ def search_for_datasets(remote_base_url, query_params=None):
         except Exception as e:
             raise SearchError(f'Error listing metax data: {e}')
 
-    return filter_duplicates(itertools.chain(*pages))
+    open_datasets = [ds for ds in itertools.chain(*pages) if ds.access_rights.access_type.identifier === ACCESS_TYPE_OPEN)]
+
+    return filter_duplicates(open_datasets)
 
 
 def filter_duplicates(datasets):
