@@ -163,7 +163,7 @@ class MetaxHarvester(HarvesterBase):
                 }
             ],
             'license_id': license_id,
-            'owner_org': 'luke-fi'
+            'owner_org': 'luke'
         }
 
 
