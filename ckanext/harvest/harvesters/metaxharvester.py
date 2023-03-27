@@ -229,7 +229,7 @@ def search_for_datasets(remote_base_url, query_params=None):
         except Exception as e:
             raise SearchError(f'Error listing metax data: {e}')
 
-    open_datasets = [ds for ds in itertools.chain(*pages) if ds.access_rights.access_type.identifier == ACCESS_TYPE_OPEN)]
+    open_datasets = [ds for ds in itertools.chain(*pages) if ds.access_rights.access_type.identifier == ACCESS_TYPE_OPEN]
 
     return filter_duplicates(open_datasets)
 
