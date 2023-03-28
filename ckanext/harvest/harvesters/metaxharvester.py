@@ -151,6 +151,7 @@ class MetaxHarvester(HarvesterBase):
             # metadata_modified determines if the package needs to be updated
             'metadata_modified': dataset_dict.get('date_modified'),
             'tags': [{'name':  kw} for kw in research_dataset.get('keyword', [])],
+            'groups': get_groups(research_dataset.get('keyword', [])),
             'resources': [
                 convert_resource(resource) for resource in research_dataset.get('remote_resources', [])
             ] or [
@@ -170,7 +171,7 @@ class MetaxHarvester(HarvesterBase):
 def needs_updating(dataset, last_error_free_job):
     if not last_error_free_job:
         return True
-    updated_in_metax = datetime.fromisoformat(dataset.get('date_modified'))
+    updated_in_metax = datetime.fromisoformat(dataset.get('date_modified', dataset.get('date_created')))
     # gather_started is created with datetime.utcnow() but the datetime object
     # is not aware of the time zone
     updated_in_ckan = last_error_free_job.gather_started.replace(tzinfo=timezone.utc)
@@ -271,6 +272,13 @@ def get_contributor_name(creator_dict):
         current_level = current_level.get('is_part_of')
 
     return ' / '.join(reversed(names))
+
+
+def get_groups(keywords):
+    groups = []
+    if 'meritietoportaali' in keywords:
+        groups.append({'name': 'meritieto'})
+    return groups
 
 
 def url_to_license_id(url):
