@@ -147,7 +147,7 @@ class MetaxHarvester(HarvesterBase):
             'maintainer': get_contributor_name(research_dataset.get('publisher', {})),
             'notes': get_preferred_language_version(research_dataset.get('description')),
             'metadata_created': datetime.fromisoformat(dataset_dict.get('date_created')),
-            'metadata_updated': datetime.fromisoformat(dataset.get('date_modified', dataset.get('date_created'))),
+            'metadata_updated': datetime.fromisoformat(dataset_dict.get('date_modified', dataset_dict.get('date_created'))),
             # metadata_modified determines if the package needs to be updated
             'metadata_modified': dataset_dict.get('date_modified'),
             'tags': [{'name':  kw} for kw in research_dataset.get('keyword', [])],
