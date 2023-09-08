@@ -215,7 +215,8 @@ def search_for_datasets(remote_base_url, query_params=None):
     params = {
         **(query_params if query_params else {}),
         'latest': 'true',
-        'metadata_owner_org': 'luke.fi',
+        'metadata_owner_org': 'luke.fi,csc.fi',
+        'creator_organization': 4100010,
         'limit': 10
     }
 
