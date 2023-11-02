@@ -150,7 +150,7 @@ class MetaxHarvester(HarvesterBase):
             'metadata_updated': datetime.fromisoformat(dataset_dict.get('date_modified', dataset_dict.get('date_created'))),
             # metadata_modified determines if the package needs to be updated
             'metadata_modified': dataset_dict.get('date_modified'),
-            'tags': [{'name':  kw} for kw in research_dataset.get('keyword', [])],
+            'tags': [{'name':  kw.replace('(', '').replace(')', '')} for kw in research_dataset.get('keyword', [])],
             'groups': get_groups(research_dataset.get('keyword', [])),
             'resources': [
                 convert_resource(resource) for resource in research_dataset.get('remote_resources', [])
