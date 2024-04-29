@@ -75,7 +75,7 @@ class MetaxHarvester(HarvesterBase):
                     guid=dataset['identifier'],
                     job=harvest_job,
                     content=json.dumps(dataset),
-                    metadata_modified_date=dataset.get('date_modified')
+                    metadata_modified_date=dataset.get('date_modified', dataset.get('date_created'))
                 )
                 for dataset in datasets_to_update
             ]
